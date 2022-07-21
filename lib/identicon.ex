@@ -1,6 +1,6 @@
 defmodule Identicon do
   def main(input) do
-    input |> hash_input |> pick_color |> build_grid |> filter_odd_squares
+    input |> hash_input |> pick_color |> build_grid |> filter_odd_squares |> build_pixel_map |> draw_image |> save_image(input) # input will be the second argument in the function when piping
   end
 
   def hash_input(input) do
@@ -44,6 +44,30 @@ defmodule Identicon do
    def filter_odd_squares(%Identicon.Image{grid: grid} = image) do
     grid = Enum.filter grid, fn {code, _index} -> rem(code, 2) == 0 end # since each tuple we're iterating through holds two values, we destructure / pattern match the first value into a variable called 'code
     %Identicon.Image{image | grid: grid}
+   end
+
+   def build_pixel_map(%Identicon.Image{grid: grid} = image) do
+    pixel_map = Enum.map grid, fn {_code, index} ->
+      horizontal = rem(index, 5) * 50
+      vertical = div(index, 5) *50
+      top_left = {horizontal, vertical}
+      bottom_right = {horizontal + 50, vertical + 50}
+      {top_left, bottom_right}
+      end
+    %Identicon.Image{image | pixel_map: pixel_map}
+   end
+
+   def draw_image(%Identicon.Image{color: color, pixel_map: pixel_map}) do # we didn't destructure off of 'image' in this function because we don't need to reference that 'image' struct this time (since we're not updating it anymore), but '= image' is not required for pattern matching if you do it in the arguments lis of the function.
+    image = :edg.create(250, 250) # this is an erlang library for creating an actual image of some sort somehow.
+    fill = :egd.color(color)
+    Enum.each pixel_map, fn {start, stop} ->
+      :egd.filledRectangle image, start, stop, fill # this is a rare case where we're not replacing data with the data modified, we're modifying the original data
+    end
+    :egd.render(image)
+   end
+
+   def save_image(image, input) do
+     File.write "#{input}.png", image
    end
 
 end
